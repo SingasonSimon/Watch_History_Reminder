@@ -78,7 +78,7 @@ service cloud.firestore {
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/SingasonSimon/Watch_History_Reminder.git
 cd watch_history_reminder
 ```
 

@@ -7,24 +7,72 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:watch_history_tracker/main.dart';
+import 'package:watch_history_tracker/core/theme/app_theme.dart';
+import 'package:watch_history_tracker/widgets/common/bottom_nav_bar.dart';
+import 'package:watch_history_tracker/widgets/common/loading_indicator.dart';
+import 'package:watch_history_tracker/widgets/common/empty_state.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Bottom navigation bar renders correctly', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: const Center(child: Text('Test')),
+          bottomNavigationBar: AppBottomNavBar(
+            currentIndex: 0,
+            onTap: (index) {},
+          ),
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verify bottom navigation bar exists
+    expect(find.byType(NavigationBar), findsOneWidget);
+    
+    // Verify navigation destinations are present
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Library'), findsOneWidget);
+    expect(find.text('Stats'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('Loading indicator displays correctly', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: LoadingIndicator(message: 'Loading...'),
+        ),
+      ),
+    );
+
+    await tester.pump(); // Use pump instead of pumpAndSettle for loading indicators
+
+    // Verify loading indicator exists
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Loading...'), findsOneWidget);
+  });
+
+  testWidgets('Empty state displays correctly', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: EmptyState(
+            icon: Icons.movie_outlined,
+            title: 'No videos',
+            message: 'Add your first video',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Verify empty state elements exist
+    expect(find.text('No videos'), findsOneWidget);
+    expect(find.text('Add your first video'), findsOneWidget);
+    expect(find.byIcon(Icons.movie_outlined), findsOneWidget);
   });
 }
