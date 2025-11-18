@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/video_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/vlc_integration_service.dart';
@@ -13,7 +14,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final FirebaseService _firebaseService = FirebaseService();
   final VlcIntegrationService _vlcService = VlcIntegrationService();
   bool _isDarkMode = false;
   bool _syncEnabled = true;
@@ -40,9 +40,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = _firebaseService.currentUser;
+    final firebaseService = Provider.of<FirebaseService>(context);
+    
+    return StreamBuilder<User?>(
+      stream: firebaseService.authStateChanges,
+      builder: (context, snapshot) {
+        final user = snapshot.data;
 
-    return Scaffold(
+        return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
       ),
@@ -72,7 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.logout),
               title: const Text('Sign Out'),
               onTap: () async {
-                await _firebaseService.signOut();
+                await firebaseService.signOut();
                 setState(() {});
               },
             ),
@@ -147,6 +152,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+      },
+    );
   }
 
   Widget _buildSectionHeader(String title) {
@@ -163,6 +170,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showSignInDialog(BuildContext context) {
+    final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
 
@@ -180,6 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 hintText: 'Enter your email',
               ),
               keyboardType: TextInputType.emailAddress,
+              autofocus: true,
             ),
             const SizedBox(height: 16),
             TextField(
@@ -200,8 +209,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () async {
               try {
-                await _firebaseService.signInWithEmailAndPassword(
-                  emailController.text,
+                await firebaseService.signInWithEmailAndPassword(
+                  emailController.text.trim(),
                   passwordController.text,
                 );
                 if (context.mounted) {
@@ -209,12 +218,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Signed in successfully')),
                   );
-                  setState(() {});
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
+                    SnackBar(content: Text('Error: ${e.toString()}')),
                   );
                 }
               }
@@ -227,6 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showSignUpDialog(BuildContext context) {
+    final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
 
@@ -244,13 +253,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 hintText: 'Enter your email',
               ),
               keyboardType: TextInputType.emailAddress,
+              autofocus: true,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: passwordController,
               decoration: const InputDecoration(
                 labelText: 'Password',
-                hintText: 'Enter your password',
+                hintText: 'Enter your password (min 6 characters)',
               ),
               obscureText: true,
             ),
@@ -263,9 +273,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () async {
+              if (passwordController.text.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password must be at least 6 characters')),
+                );
+                return;
+              }
+              
               try {
-                await _firebaseService.createUserWithEmailAndPassword(
-                  emailController.text,
+                await firebaseService.createUserWithEmailAndPassword(
+                  emailController.text.trim(),
                   passwordController.text,
                 );
                 if (context.mounted) {
@@ -273,12 +290,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Account created successfully')),
                   );
-                  setState(() {});
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
+                    SnackBar(content: Text('Error: ${e.toString()}')),
                   );
                 }
               }
@@ -291,7 +307,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _importFromVlc(BuildContext context) async {
-    final user = _firebaseService.currentUser;
+    final firebaseService = Provider.of<FirebaseService>(context, listen: false);
+    final user = firebaseService.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in first')),
@@ -301,14 +318,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final exists = await _vlcService.checkVlcDatabaseExists();
     if (!exists) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('VLC database not found')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('VLC database not found')),
+        );
+      }
       return;
     }
 
     try {
       final entries = await _vlcService.importVlcHistory(user.uid);
+      if (!context.mounted) return;
+      
       final provider = context.read<VideoProvider>();
       
       for (var entry in entries) {

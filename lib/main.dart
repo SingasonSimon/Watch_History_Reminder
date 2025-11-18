@@ -10,6 +10,7 @@ import 'screens/library/library_screen.dart';
 import 'screens/statistics/statistics_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'widgets/common/bottom_nav_bar.dart';
+import 'routes/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,7 @@ class MyApp extends StatelessWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.system,
         home: const MainScreen(),
+        onGenerateRoute: AppRouter.generateRoute,
         debugShowCheckedModeBanner: false,
       ),
     );
